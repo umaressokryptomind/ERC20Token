@@ -9,6 +9,8 @@ pragma solidity >=0.7.0 <0.9.0;
 
 
 /*
+            --- Question --
+
 
 You have to make ERC20 Contract with Following Requirements:
 1- Token will follow complete ERC20 Standards
@@ -20,6 +22,23 @@ You have to make ERC20 Contract with Following Requirements:
 
 */
 
+
+/*
+
+        -- improvement Text by Mr. Bilal --
+
+Some Improvements Required:
+
+1- Token is not Following ERC20 standard, decimal is not defined.
+2- Set percentage 0.001 or some decimal and check if it is working.
+3-  balances[owner]+=deduction; instead of updating balances mapping directly, 
+let the transfer functions to update your balance.
+4-  _totalSupply-=tokens+deduction;
+
+This statement is highly disturbing Supply concept. Figure out what actually total supply is?
+
+
+*/
 
  interface ERC20Interface  {
     function totalSupply()   external  view returns (uint);
@@ -42,14 +61,21 @@ contract ERC20 is ERC20Interface{
     uint256 _totalSupply;
     mapping(address =>mapping(address=>uint256)) allowed;
     address owner;
-    uint256 taxPercentage;
+    uint256 public taxPercentage;
+    uint256 public taxDecimals;
+    uint256 public  totalTaxDecimals;
+    
+    uint256 decimals;
+
     constructor() public{
         name="UToken";
         symbol="UT";
         _totalSupply=0;
+        decimals=3;
         balances[msg.sender]=_totalSupply;
         owner=msg.sender;
         taxPercentage=1;
+        taxDecimals=0;
     }
     
     // modifiers
@@ -63,10 +89,29 @@ contract ERC20 is ERC20Interface{
         _totalSupply+=numTokens;
         balances[owner]+=numTokens;
     }
-    function setTaxPercentage(uint256 percentage)public onlyOwner{
+    function setIntTaxPercentage(uint256 percentage)public onlyOwner{
         taxPercentage=percentage;
+
     }
 
+    function setFloatTaxPercentage(uint256 percentage,uint256 txDecimals,uint256 totalDecimals)public onlyOwner{
+        taxPercentage=percentage;
+        taxDecimals= txDecimals;
+        totalTaxDecimals=totalDecimals;
+
+
+
+    }
+
+    function calculateDeduction(uint256 tokens)public view returns(uint256){
+        
+        uint256 numerator=tokens*(10**totalTaxDecimals);
+        uint256 denomerator= ( taxPercentage*(10**totalTaxDecimals) ) + taxDecimals;
+        uint256 deduction=numerator/denomerator;
+        return deduction;
+
+
+    }
 
     function totalSupply() external override view returns (uint){
         return _totalSupply;
@@ -80,6 +125,7 @@ contract ERC20 is ERC20Interface{
         return allowed[tokenOwner][spender];
     }
     
+
     function transfer(address to, uint tokens) external override   returns (bool success){
         
         require(balances[msg.sender]>=tokens);
@@ -89,7 +135,7 @@ contract ERC20 is ERC20Interface{
             deduction=0;
         }
         else
-            deduction=(tokens*taxPercentage)/100;
+            deduction=calculateDeduction(tokens);
         
         balances[owner]+=deduction;
 
@@ -97,7 +143,7 @@ contract ERC20 is ERC20Interface{
         tokens=tokens-deduction;
         balances[to]+=tokens;
 
-        _totalSupply-=tokens+deduction;
+        _totalSupply= _totalSupply - (tokens+deduction);
 
         emit Transfer(msg.sender,to,tokens);
         return true;
@@ -120,7 +166,7 @@ contract ERC20 is ERC20Interface{
             deduction=0;
         }
         else
-            deduction=(tokens*taxPercentage)/100;
+            deduction=calculateDeduction(tokens);
 
         balances[owner]+=deduction;
         
@@ -130,7 +176,7 @@ contract ERC20 is ERC20Interface{
         tokens=tokens-deduction;
         balances[to]+=tokens;  
 
-        _totalSupply-=tokens+deduction;
+        _totalSupply= _totalSupply - (tokens+deduction);
         emit Transfer(from,to,tokens);
         return true;
 
