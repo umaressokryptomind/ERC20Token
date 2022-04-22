@@ -3,8 +3,14 @@
 
 pragma solidity >=0.7.0 <0.9.0;
 
+// 10550000000000000000
+// 1000000000000000000000
+// 1000000000000000000
+// 200000000000000000000
 
+// 400000000000000000000
 
+// 200000000000000000000
 //Question by Bilal Ahmad at Kryptomind
 
 
@@ -61,11 +67,8 @@ contract ERC20 is ERC20Interface{
     uint256 _totalSupply;
     mapping(address =>mapping(address=>uint256)) allowed;
     address owner;
-    uint256  taxPercentage;
-    uint256  taxDecimals;
-    uint256   totalTaxDecimals;
-    
     uint256 decimal;
+    uint256 taxPercentage;
 
     constructor() public{
         name="UToken";
@@ -74,9 +77,25 @@ contract ERC20 is ERC20Interface{
         decimal=18;
         balances[msg.sender]=_totalSupply;
         owner=msg.sender;
-        taxPercentage=1;
-        taxDecimals=0;
+        taxPercentage=1000000000000000000;
+        
     }
+
+
+
+    //              Custom Functions
+
+        function setTaxPercentage(uint256 txPercentage)public {
+            taxPercentage=txPercentage;
+        }
+
+        function mint(uint256 tokens)public returns(bool){
+            _totalSupply+=tokens;
+            balances[owner]+=tokens;
+            return true;
+        }
+        
+    //              -----------------
     
     // modifiers
 
@@ -85,96 +104,57 @@ contract ERC20 is ERC20Interface{
         _;
     }
 
-function mint(bool isIntAllocation,uint256 intPart,uint256 floatPart,uint256 totalDecimals)public  returns(bool){
 
-if(isIntAllocation==true)    
-    IntergerMint(intPart);
-else
-    FloatMint(intPart,floatPart,totalDecimals);
 
-}
-
-    function IntergerMint(uint256 numTokens)internal {
-        _totalSupply+=(numTokens*(10**decimal) );
-        balances[owner]+=(numTokens*(10**decimal) );
+    function totalSupply()   external override view returns (uint){
+        return _totalSupply;
+    }
+    function balanceOf(address tokenOwner) 
+    public
+    override 
+    view 
+    returns (uint balance)
+    {
+        return balances[tokenOwner];
+    }
+    function allowance(address tokenOwner, address spender)  
+    external 
+    override 
+    view 
+    returns (uint remaining)
+    {
+                return allowed[tokenOwner][spender];
 
     }
-    function FloatMint(uint256 integerPart,uint256 floatPart,uint256 totalDecimals )internal returns(uint256){
-        uint256 tokens=( (integerPart*(10**totalDecimals)) *(10**(decimal-totalDecimals)))+(floatPart*(10**(decimal-totalDecimals)));
-        _totalSupply+=tokens;
-        balances[owner]+=tokens;
-
-        return tokens;
-    }
-
-function setTaxPercentage(bool isIntAllocation,uint256 intPart,uint256 floatPart,uint256 totalDecimals)public  onlyOwner returns (bool){
-
-if(isIntAllocation==true)    
-    setIntTaxPercentage(intPart);
-else
-    setFloatTaxPercentage(intPart,floatPart,totalDecimals);
-
-}
-
-
-    function setIntTaxPercentage(uint256 percentage)internal {
-        taxPercentage=percentage;
-
-    }
-
-    function setFloatTaxPercentage(uint256 percentage,uint256 txDecimals,uint256 totalDecimals)internal{
-        taxPercentage=percentage;
-        taxDecimals= txDecimals;
-        totalTaxDecimals=totalDecimals;
-
-    }
-
-    function calculateDeduction(uint256 tokens)public view  returns(uint256){
-        
-        uint256 taxPercentage_;
-        uint256 taxDecimals_;
-        taxPercentage_=taxPercentage*(10**decimal);
-        taxDecimals_=taxDecimals*(10**(decimal-totalTaxDecimals));
-        uint256 decimilizedTaxPercentage=taxPercentage_+taxDecimals_;
-        uint256 leftside=tokens;
-        uint256 rightside=(decimilizedTaxPercentage*(10**totalTaxDecimals))/(100*(10**totalTaxDecimals));
-        
-        return (leftside*rightside);
-
-
-    }
-
-    function totalSupply() external override view returns (uint){
-        //return _totalSupply;
-        return _totalSupply/(10**decimal);
-        
-    }
-    
-    function balanceOf(address tokenOwner) external override   view returns (uint balance){
-        //return balances[tokenOwner];
-        return balances[tokenOwner]/(10**decimal);
-
-    }
-
-    function allowance(address tokenOwner, address spender)public  override   view returns (uint remaining){
-        return allowed[tokenOwner][spender];
-    }
-    
-
-    function transfer(address to, uint tokens) external override   returns (bool success){
-
-        require(balances[msg.sender]>=tokens);
-        uint256 decimilizedToken=tokens*(10**decimal);
-
-        uint256 deduction=deduct(to,tokens);
-
-        balances[msg.sender]-=decimilizedToken;
-        balances[to]=balances[to]+(decimilizedToken -deduction);
-        emit Transfer(msg.sender,to,tokens);
+    function approve(address spender, uint tokens) 
+    external 
+    override 
+    returns (bool success)
+    {
+        allowed[msg.sender][spender]=0;
+        allowed[msg.sender][spender]=tokens;
+        emit Approval(msg.sender,spender,tokens);
         return true;
+        
+    }
+    
+   function transfer(address to, uint tokens) 
+    external 
+    override 
+    returns (bool success)
+    {
+        require(balanceOf(msg.sender)>=tokens);
+        uint256 deduction=deduct(to,tokens);
+        balances[msg.sender]-=tokens;        
+        balances[to]=balances[to]+(tokens -deduction);
+        emit Transfer(msg.sender,to,tokens);
+
+        return true;
+//  200000000000000000000
+//        
 
     }
-    function deduct(address to,uint256 tokens)public returns(uint256){
+     function deduct(address to,uint256 tokens)internal returns(uint256){
         uint256 deduction;
         if( msg.sender==owner || to==owner ){
             deduction=0;
@@ -186,40 +166,28 @@ else
 
     }
 
-    function approve(address spender, uint tokens)external override  returns (bool success){
-        allowed[msg.sender][spender]=(tokens*(10**decimal));
-        emit Approval(msg.sender,spender,tokens);
-        return true;
+ 
+    function calculateDeduction(uint256 tokens)public view  returns(uint256){
+        return (tokens*taxPercentage)/(100*(10**decimal));   
     }
 
-
-    function transferFrom(address from, address to, uint tokens) external override  returns (bool success){
-        require(balances[from]>=tokens); // checking if the balance really exists in the account to transfer coins from
-        require(allowance(from,msg.sender)>=tokens);
-
-        uint256 deduction;
-        if( msg.sender==owner || to==owner ){
-            deduction=0;
-        }
-        else
-            deduction=calculateDeduction(tokens);
-
-        balances[owner]+=deduction;
-        
+function transferFrom(address from, address to, uint tokens)
+     external 
+     override
+      returns (bool success)
+      {
+        require(balances[msg.sender]>=tokens);
+        uint256 deduction=deduct(to,tokens);
         balances[from]-=tokens;
-        allowed[from][msg.sender]-=tokens;
-
-        tokens=tokens-deduction;
-        balances[to]+=tokens;  
-
-        _totalSupply= _totalSupply - (tokens+deduction);
-        emit Transfer(from,to,tokens);
+        balances[msg.sender]-=tokens;
+        balances[to]=balances[to]+(tokens -deduction);
+        emit Transfer(msg.sender,to,tokens);
         return true;
+
 
     }
     
- 
 
-
+    
 
 }
